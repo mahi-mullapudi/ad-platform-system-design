@@ -1,0 +1,115 @@
+# CI/CD Pipeline: Build, Push to ACR, Deploy to AKS
+#
+# Prerequisites (GitHub repo settings → Secrets and variables → Actions):
+#   AZURE_CLIENT_ID       - App Registration / Service Principal client ID
+#   AZURE_TENANT_ID       - Azure AD tenant ID
+#   AZURE_SUBSCRIPTION_ID - Azure subscription ID
+#
+# Authentication uses OIDC (federated credentials) — no client secrets stored.
+# Set up:
+#   az ad app create --display-name "github-ads-platform"
+#   az ad sp create --id <APP_ID>
+#   az ad app federated-credential create --id <APP_ID> --parameters @- <<EOF
+#   {
+#     "name": "github-main",
+#     "issuer": "https://token.actions.githubusercontent.com",
+#     "subject": "repo:<OWNER>/<REPO>:ref:refs/heads/main",
+#     "audiences": ["api://AzureADTokenExchange"]
+#   }
+#   EOF
+#   az role assignment create --assignee <APP_ID> --role Contributor --scope /subscriptions/<SUB_ID>/resourceGroups/ads-platform-dev-rg
+
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # Required for OIDC auth to Azure
+  contents: read
+
+env:
+  ACR_NAME: adsplatformdevacr
+  AKS_CLUSTER: ads-platform-dev-aks
+  RESOURCE_GROUP: ads-platform-dev-rg
+  NAMESPACE: ads-platform
+
+jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: ad-click-service
+            context: .
+            dockerfile: ad-click-service/Dockerfile
+          - name: ad-click-processor
+            context: .
+            dockerfile: ad-click-processor/Dockerfile
+          - name: analytics-gateway
+            context: .
+            dockerfile: analytics-gateway/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build & Push ${{ matrix.service.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/${{ matrix.service.name }}:${{ github.sha }}
+            ${{ env.ACR_NAME }}.azurecr.io/${{ matrix.service.name }}:latest
+
+  deploy:
+    name: Deploy to AKS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS Credentials
+        run: az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }}
+
+      - name: Substitute image tags in manifests
+        run: |
+          ACR_SERVER="${{ env.ACR_NAME }}.azurecr.io"
+          for f in k8s/ad-click-service.yaml k8s/ad-click-processor.yaml k8s/analytics-gateway.yaml; do
+            sed -i "s|<ACR_LOGIN_SERVER>|${ACR_SERVER}|g" "$f"
+            sed -i "s|:latest|:${{ github.sha }}|g" "$f"
+          done
+
+      - name: Apply K8s manifests
+        run: |
+          kubectl apply -f k8s/00-namespace-secrets.yaml
+          kubectl apply -f k8s/ad-click-service.yaml
+          kubectl apply -f k8s/ad-click-processor.yaml
+          kubectl apply -f k8s/analytics-gateway.yaml
+          kubectl apply -f k8s/ingress.yaml
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/ad-click-service -n ${{ env.NAMESPACE }} --timeout=300s
+          kubectl rollout status deployment/analytics-gateway -n ${{ env.NAMESPACE }} --timeout=300s
+          kubectl rollout status deployment/ad-click-processor -n ${{ env.NAMESPACE }} --timeout=300s
