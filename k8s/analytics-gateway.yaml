@@ -21,10 +21,8 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # Override route URIs to point to K8s service DNS names
-            - name: SPRING_CLOUD_GATEWAY_ROUTES_0_URI
-              value: "http://ad-click-service.ads-platform.svc.cluster.local:8081"
-            - name: SPRING_CLOUD_GATEWAY_ROUTES_1_URI
+            # Override backend URI to point to K8s service DNS name
+            - name: BACKEND_URI
               value: "http://ad-click-service.ads-platform.svc.cluster.local:8081"
           resources:
             requests:

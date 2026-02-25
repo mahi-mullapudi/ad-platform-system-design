@@ -1,3 +1,6 @@
+app:
+  backend-uri: ${BACKEND_URI:http://localhost:8081}
+
 spring:
   application:
     name: analytics-gateway
@@ -7,7 +10,7 @@ spring:
       routes:
         # Route to ad-click-service
         - id: ad-click-service
-          uri: http://localhost:8081
+          uri: ${app.backend-uri}
           predicates:
             - Path=/api/v1/events/**
           filters:
@@ -15,7 +18,7 @@ spring:
 
         # Route to ad-click-service analytics endpoints
         - id: analytics-service
-          uri: http://localhost:8081
+          uri: ${app.backend-uri}
           predicates:
             - Path=/api/v1/analytics/**
           filters:
