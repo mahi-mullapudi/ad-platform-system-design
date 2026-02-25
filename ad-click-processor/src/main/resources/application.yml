@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: ad-click-processor
+
+# Flink Configuration
+flink:
+  job-name: ad-click-processor
+  parallelism: 4
+  checkpoint-dir: file:///tmp/flink-checkpoints
+  checkpoint-interval: 60000
+  kafka:
+    bootstrap-servers: localhost:9092
+    schema-registry-url: http://localhost:8081
+    source-topic: ad-click-events
+    sink-topic: ad-click-aggregations
+    consumer-group: ad-click-processor
+  pinot:
+    broker-url: localhost:8000
+    table-name: ad_click_analytics
+    batch-size: 1000
+    batch-interval-ms: 10000
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    com.tutorialq.systemdesign.processor: DEBUG
+    org.apache.flink: INFO
+
+server:
+  port: 8083

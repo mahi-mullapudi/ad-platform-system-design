@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ad-click-processor
+  namespace: ads-platform
+  labels:
+    app: ad-click-processor
+spec:
+  # Single replica — Flink embedded mode; for HA use Flink native K8s deployment
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ad-click-processor
+  template:
+    metadata:
+      labels:
+        app: ad-click-processor
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: ads-platform-sa
+      containers:
+        - name: ad-click-processor
+          image: adsplatformdevacr.azurecr.io/ad-click-processor:v1
+          ports:
+            - containerPort: 8083
+          env:
+            - name: FLINK_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: FLINK_KAFKA_SOURCE_TOPIC
+              value: "ad-click-events"
+            - name: FLINK_KAFKA_SINK_TOPIC
+              value: "ad-click-aggregations"
+            - name: FLINK_KAFKA_CONSUMER_GROUP
+              value: "ad-click-processor"
+            # Event Hubs SASL config for Flink Kafka connector
+            - name: FLINK_KAFKA_SECURITY_PROTOCOL
+              value: "SASL_SSL"
+            - name: FLINK_KAFKA_SASL_MECHANISM
+              value: "PLAIN"
+            - name: FLINK_KAFKA_SASL_JAAS_CONFIG
+              valueFrom:
+                secretKeyRef:
+                  name: eventhubs-sasl-secret
+                  key: SASL_JAAS_CONFIG
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 90
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          volumeMounts:
+            - name: secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: azure-kv-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ad-click-processor
+  namespace: ads-platform
+spec:
+  selector:
+    app: ad-click-processor
+  ports:
+    - port: 8083
+      targetPort: 8083
+  type: ClusterIP
