@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: analytics-gateway
-          image: adsplatformdevacr.azurecr.io/analytics-gateway:v1
+          image: adsplatformdevacr.azurecr.io/analytics-gateway:v2
           ports:
             - containerPort: 8080
           env:

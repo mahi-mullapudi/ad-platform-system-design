@@ -21,9 +21,9 @@ public class DatabaseConfiguration {
      * Initialize Flyway migrations on startup.
      * Flyway runs on JDBC connection pool, separate from R2DBC.
      */
-    @Bean(initMethod = "migrate")
+    @Bean
     public Flyway flyway(FlywayProperties flywayProperties) {
-        return Flyway.configure()
+        Flyway flyway = Flyway.configure()
                 .dataSource(
                         flywayProperties.getUrl(),
                         flywayProperties.getUser(),
@@ -32,5 +32,9 @@ public class DatabaseConfiguration {
                 .locations(flywayProperties.getLocations().toArray(new String[0]))
                 .baselineOnMigrate(flywayProperties.isBaselineOnMigrate())
                 .load();
+        // Repair cleans up failed migration records so they can be re-attempted
+        flyway.repair();
+        flyway.migrate();
+        return flyway;
     }
 }

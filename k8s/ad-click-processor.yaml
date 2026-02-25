@@ -20,7 +20,7 @@ spec:
       serviceAccountName: ads-platform-sa
       containers:
         - name: ad-click-processor
-          image: adsplatformdevacr.azurecr.io/ad-click-processor:v1
+          image: adsplatformdevacr.azurecr.io/ad-click-processor:v2
           ports:
             - containerPort: 8083
           env:
