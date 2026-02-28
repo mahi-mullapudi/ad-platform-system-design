@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+*.iml
+
+# Terraform state
+infra/terraform/.terraform
+infra/terraform/*.tfstate*
+
+# Build output (we build inside Docker)
+**/target/
+
+# Docs
+*.md
+!README.md
+LICENSE
+
+# Docker
+**/Dockerfile
+docker-compose.yml

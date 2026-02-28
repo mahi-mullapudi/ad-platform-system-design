@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "AdClickEvent",
+  "namespace": "com.tutorialq.systemdesign.avro",
+  "doc": "Canonical representation of an ad event (click/impression) emitted by ad-click-service",
+  "fields": [
+    {"name": "eventId", "type": "string", "doc": "Unique event identifier for idempotency"},
+    {"name": "adId", "type": "string", "doc": "Advertisement identifier"},
+    {"name": "campaignId", "type": "string", "doc": "Campaign identifier"},
+    {"name": "userId", "type": ["null", "string"], "default": null, "doc": "User identifier if available"},
+    {"name": "eventType", "type": "string", "doc": "CLICK or IMPRESSION"},
+    {"name": "timestamp", "type": {
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    }, "doc": "Event timestamp"},
+    {"name": "ipAddress", "type": ["null", "string"], "default": null, "doc": "Client IP address"},
+    {"name": "userAgent", "type": ["null", "string"], "default": null, "doc": "Client user agent"},
+    {"name": "metadata", "type": {
+      "type": "map",
+      "values": "string"
+    }, "default": {}, "doc": "Additional metadata as key-value pairs"}
+  ]
+}

@@ -1,0 +1,65 @@
+app:
+  backend-uri: ${BACKEND_URI:http://localhost:8081}
+
+spring:
+  application:
+    name: analytics-gateway
+
+  cloud:
+    gateway:
+      routes:
+        # Route to ad-click-service
+        - id: ad-click-service
+          uri: ${app.backend-uri}
+          predicates:
+            - Path=/api/v1/events/**
+          filters:
+            - StripPrefix=0
+
+        # Route to ad-click-service analytics endpoints
+        - id: analytics-service
+          uri: ${app.backend-uri}
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - StripPrefix=0
+
+        # Route to Pinot broker for analytics queries
+        - id: pinot-broker
+          uri: http://localhost:8000
+          predicates:
+            - Path=/pinot/**
+          filters:
+            - StripPrefix=1
+
+      # Enable CORS
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.tutorialq.systemdesign.analytics: DEBUG
+
+server:
+  port: 8080

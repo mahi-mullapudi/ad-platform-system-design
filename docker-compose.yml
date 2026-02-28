@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for reactive persistence
+  postgres:
+    image: postgres:16-alpine
+    container_name: ads-postgres
+    environment:
+      POSTGRES_DB: ads_platform
+      POSTGRES_USER: ads_user
+      POSTGRES_PASSWORD: ads_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ads_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: ads-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: ads-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Schema Registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: ads-schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Apache Pinot Controller
+  pinot-controller:
+    image: apachepinot/pinot:1.0.0
+    container_name: ads-pinot-controller
+    command: StartController -zkAddress zookeeper:2181
+    depends_on:
+      - zookeeper
+    ports:
+      - "9000:9000"
+    environment:
+      JAVA_OPTS: "-Xms512M -Xmx1G"
+
+  # Apache Pinot Broker
+  pinot-broker:
+    image: apachepinot/pinot:1.0.0
+    container_name: ads-pinot-broker
+    command: StartBroker -zkAddress zookeeper:2181
+    depends_on:
+      - pinot-controller
+    ports:
+      - "8099:8099"
+    environment:
+      JAVA_OPTS: "-Xms512M -Xmx1G"
+
+  # Apache Pinot Server
+  pinot-server:
+    image: apachepinot/pinot:1.0.0
+    container_name: ads-pinot-server
+    command: StartServer -zkAddress zookeeper:2181
+    depends_on:
+      - pinot-broker
+    environment:
+      JAVA_OPTS: "-Xms512M -Xmx1G"
+
+  # PgBouncer for connection pooling
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: ads-pgbouncer
+    depends_on:
+      - postgres
+    ports:
+      - "6432:5432"
+    environment:
+      DATABASE_URL: postgres://ads_user:ads_password@postgres:5432/ads_platform
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 50
+
+volumes:
+  postgres-data:
+
+networks:
+  default:
+    name: ads-platform-network
