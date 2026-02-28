@@ -5,20 +5,17 @@ spring:
 # Flink Configuration
 flink:
   job-name: ad-click-processor
-  parallelism: 4
-  checkpoint-dir: file:///tmp/flink-checkpoints
+  parallelism: ${FLINK_PARALLELISM:4}
+  checkpoint-dir: ${FLINK_CHECKPOINT_DIR:file:///tmp/flink-checkpoints}
   checkpoint-interval: 60000
   kafka:
-    bootstrap-servers: localhost:9092
-    schema-registry-url: http://localhost:8081
-    source-topic: ad-click-events
-    sink-topic: ad-click-aggregations
-    consumer-group: ad-click-processor
-  pinot:
-    broker-url: localhost:8000
-    table-name: ad_click_analytics
-    batch-size: 1000
-    batch-interval-ms: 10000
+    bootstrap-servers: ${FLINK_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    source-topic: ${FLINK_KAFKA_SOURCE_TOPIC:ad-click-events}
+    sink-topic: ${FLINK_KAFKA_SINK_TOPIC:ad-click-aggregations}
+    consumer-group: ${FLINK_KAFKA_CONSUMER_GROUP:ad-click-processor}
+    security-protocol: ${FLINK_KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+    sasl-mechanism: ${FLINK_KAFKA_SASL_MECHANISM:}
+    sasl-jaas-config: ${FLINK_KAFKA_SASL_JAAS_CONFIG:}
 
 # Actuator
 management:
@@ -28,12 +25,14 @@ management:
         include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
+      probes:
+        enabled: true
 
 # Logging
 logging:
   level:
-    com.tutorialq.systemdesign.processor: DEBUG
+    com.tutorialq.systemdesign.processor: INFO
     org.apache.flink: INFO
 
 server:

@@ -37,8 +37,25 @@ env:
   NAMESPACE: ads-platform
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests
+        run: ./mvnw verify -B --no-transfer-progress
+
   build-and-push:
     name: Build & Push Images
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -95,10 +112,17 @@ jobs:
       - name: Substitute image tags in manifests
         run: |
           ACR_SERVER="${{ env.ACR_NAME }}.azurecr.io"
+          SHA_TAG="${{ github.sha }}"
           for f in k8s/ad-click-service.yaml k8s/ad-click-processor.yaml k8s/analytics-gateway.yaml; do
-            sed -i "s|<ACR_LOGIN_SERVER>|${ACR_SERVER}|g" "$f"
-            sed -i "s|:latest|:${{ github.sha }}|g" "$f"
+            # Replace any existing ACR image reference with the SHA-tagged version
+            sed -i "s|image: ${ACR_SERVER}/\([^:]*\):[^ ]*|image: ${ACR_SERVER}/\1:${SHA_TAG}|g" "$f"
           done
+
+      - name: Substitute namespace-secrets placeholders
+        run: |
+          sed -i "s|<APP_IDENTITY_CLIENT_ID>|${{ secrets.APP_IDENTITY_CLIENT_ID }}|g" k8s/00-namespace-secrets.yaml
+          sed -i "s|<TENANT_ID>|${{ secrets.AZURE_TENANT_ID }}|g" k8s/00-namespace-secrets.yaml
+          sed -i "s|<KEYVAULT_NAME>|${{ secrets.KEYVAULT_NAME }}|g" k8s/00-namespace-secrets.yaml
 
       - name: Apply K8s manifests
         run: |

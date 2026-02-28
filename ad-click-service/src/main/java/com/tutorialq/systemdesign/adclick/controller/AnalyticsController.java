@@ -1,7 +1,7 @@
 package com.tutorialq.systemdesign.adclick.controller;
 
 import com.tutorialq.systemdesign.adclick.domain.CampaignSummary;
-import com.tutorialq.systemdesign.adclick.repository.AdClickEventRepository;
+import com.tutorialq.systemdesign.adclick.service.AdClickEventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AnalyticsController {
 
-    private final AdClickEventRepository repository;
+    private final AdClickEventService service;
 
     @GetMapping("/campaign/{campaignId}/summary")
     public Mono<Map<String, Object>> getCampaignSummary(
@@ -25,8 +25,8 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant end) {
 
-        Mono<Long> clicks = repository.countByCampaignIdAndEventTypeInTimeRange(campaignId, "CLICK", start, end);
-        Mono<Long> impressions = repository.countByCampaignIdAndEventTypeInTimeRange(campaignId, "IMPRESSION", start, end);
+        Mono<Long> clicks = service.countEventsByCampaignTypeAndTimeRange(campaignId, "CLICK", start, end);
+        Mono<Long> impressions = service.countEventsByCampaignTypeAndTimeRange(campaignId, "IMPRESSION", start, end);
 
         return Mono.zip(clicks, impressions, (clickCount, impressionCount) -> {
             Map<String, Object> summary = new LinkedHashMap<>();
@@ -43,6 +43,6 @@ public class AnalyticsController {
     public Flux<CampaignSummary> getTopCampaigns(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant start,
             @RequestParam(defaultValue = "10") int limit) {
-        return repository.findTopCampaignsByEventCount(start, limit);
+        return service.getTopCampaigns(start, limit);
     }
 }

@@ -17,7 +17,7 @@ resource "azurerm_eventhub" "click_events" {
   namespace_name      = azurerm_eventhub_namespace.main.name
   resource_group_name = azurerm_resource_group.main.name
   partition_count     = 4
-  message_retention   = 1
+  message_retention   = 3
 }
 
 # Event Hub: ad-click-aggregations (sink topic)
@@ -26,7 +26,7 @@ resource "azurerm_eventhub" "aggregations" {
   namespace_name      = azurerm_eventhub_namespace.main.name
   resource_group_name = azurerm_resource_group.main.name
   partition_count     = 4
-  message_retention   = 1
+  message_retention   = 3
 }
 
 # Consumer group for Flink processor

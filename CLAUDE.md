@@ -37,7 +37,7 @@ Start infrastructure before running services:
 ```bash
 docker-compose up -d
 ```
-This starts PostgreSQL (5432), PgBouncer (6432), Zookeeper (2181), Kafka (9092), Schema Registry (8081), and Pinot (Controller 9000, Broker 8099).
+This starts PostgreSQL (5432), Zookeeper (2181), and Kafka (9092).
 
 Run services individually via IDE or:
 ```bash
@@ -50,29 +50,28 @@ mvn spring-boot:run -pl ad-click-processor     # Port 8083
 
 ```
 Analytics Gateway (:8080)  ──routes──►  Ad-Click Service (:8081)
-        │                                      │
-        │                                      │ publishes Avro events
-        └──routes──► Pinot Broker (:8099)      ▼
-                          ▲              Kafka + Schema Registry
-                          │                    │
-                          └──── Ad-Click Processor (:8083, Flink)
                                                │
-                                          PostgreSQL (:5432)
+                                               │ publishes JSON events
+                                               ▼
+                                         Kafka (9092)
+                                               │
+                                   Ad-Click Processor (:8083, Flink)
+                                               │
+                                         PostgreSQL (:5432)
 ```
 
 ### Module Responsibilities
 
-- **ads-domain**: Shared Avro schema (`AdClickEvent.avsc`) → generates Java classes at build time. All modules that handle events depend on this.
+- **ads-domain**: Shared Avro schema (`AdClickEvent.avsc`) — canonical event contract definition. Generates Java classes at build time.
 - **ad-click-service**: Reactive REST API (WebFlux + R2DBC). Persists events to PostgreSQL with idempotent writes (unique `event_id`), publishes to Kafka topic `ad-click-events`. Flyway manages DB migrations.
-- **ad-click-processor**: Spring-managed Apache Flink job. Consumes from Kafka, performs windowed aggregations, sinks to Pinot. Uses `@Profile("!test")` to skip job execution during testing.
-- **analytics-gateway**: Spring Cloud Gateway. Routes `/api/v1/events/**` to ad-click-service and `/pinot/**` to Pinot broker. Configures global CORS.
-- **ad-service**: Legacy/placeholder module, minimal content.
+- **ad-click-processor**: Spring-managed Apache Flink job. Consumes from Kafka, performs windowed aggregations, writes results back. Uses `@Profile("!test")` to skip job execution during testing.
+- **analytics-gateway**: Spring Cloud Gateway. Routes `/api/v1/events/**` to ad-click-service. Configures global CORS.
 
 ### Key Patterns
 
 - **Reactive everywhere**: WebFlux controllers return `Mono`/`Flux`, R2DBC for non-blocking DB access. Flyway still uses JDBC (separate connection config in `application.yml`).
 - **Dual DB config**: R2DBC (`spring.r2dbc.*`) for reactive queries, JDBC (`spring.flyway.*`) for migrations — both pointing at the same PostgreSQL instance.
-- **Avro serialization**: Kafka messages use Confluent `KafkaAvroSerializer` with Schema Registry. The Avro schema in `ads-domain` is the single source of truth.
+- **JSON serialization**: Kafka messages use Spring `JsonSerializer` with `StringSerializer` keys. The Avro schema in `ads-domain` serves as the canonical event contract.
 - **PostgreSQL partitioning**: `ad_click_events` table uses range partitioning by timestamp (daily). A trigger auto-creates partitions. BRIN indexes for time-series queries.
 - **Flink-in-Spring**: Flink `StreamExecutionEnvironment` is a Spring bean, job runs via `CommandLineRunner` with async execution.
 
@@ -96,6 +95,8 @@ PostgreSQL 16 with table `ad_click_events`. Migrations in `ad-click-service/src/
 
 ## Deployment
 
-- `deploy-azure.sh` for Azure deployment automation
-- Kubernetes manifests in `k8s/` (namespace, secrets, ad-click-service deployment)
+- Terraform IaC in `infra/terraform/` (AKS, ACR, Event Hubs, PostgreSQL, Key Vault)
+- Kubernetes manifests in `k8s/`
+- GitHub Actions CI/CD in `.github/workflows/deploy.yml`
+- Deployment guide in `infra/DEPLOY.md`
 - Target: ~$250/month Azure budget for 1000 req/sec, 10M events/day

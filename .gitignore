@@ -39,6 +39,7 @@ build/
 ### Environment files ###
 .env
 .env.*
+!.env.example
 
 ### Rendered K8s secrets ###
 k8s/eventhubs-sasl-secret.yaml

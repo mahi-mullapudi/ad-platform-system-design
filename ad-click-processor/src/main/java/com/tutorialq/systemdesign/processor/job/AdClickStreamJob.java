@@ -18,9 +18,12 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.common.config.SaslConfigs;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Properties;
 
 /**
  * Spring-managed Flink streaming job that processes ad click events.
@@ -36,14 +39,32 @@ public class AdClickStreamJob {
 
     public void execute(StreamExecutionEnvironment env) throws Exception {
 
+        FlinkProperties.KafkaProperties kafkaProps = flinkProperties.getKafka();
+
+        // Build SASL properties for Azure Event Hubs (when configured)
+        Properties saslProperties = new Properties();
+        String protocol = kafkaProps.getSecurityProtocol();
+        if (protocol != null && !protocol.isBlank() && !"PLAINTEXT".equals(protocol)) {
+            saslProperties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, protocol);
+            if (kafkaProps.getSaslMechanism() != null && !kafkaProps.getSaslMechanism().isBlank()) {
+                saslProperties.put(SaslConfigs.SASL_MECHANISM, kafkaProps.getSaslMechanism());
+            }
+            if (kafkaProps.getSaslJaasConfig() != null && !kafkaProps.getSaslJaasConfig().isBlank()) {
+                saslProperties.put(SaslConfigs.SASL_JAAS_CONFIG, kafkaProps.getSaslJaasConfig());
+            }
+        }
+
         // Configure Kafka source reading raw JSON strings
-        KafkaSource<String> kafkaSource = KafkaSource.<String>builder()
-                .setBootstrapServers(flinkProperties.getKafka().getBootstrapServers())
-                .setTopics(flinkProperties.getKafka().getSourceTopic())
-                .setGroupId(flinkProperties.getKafka().getConsumerGroup())
+        var sourceBuilder = KafkaSource.<String>builder()
+                .setBootstrapServers(kafkaProps.getBootstrapServers())
+                .setTopics(kafkaProps.getSourceTopic())
+                .setGroupId(kafkaProps.getConsumerGroup())
                 .setStartingOffsets(OffsetsInitializer.earliest())
-                .setValueOnlyDeserializer(new SimpleStringSchema())
-                .build();
+                .setValueOnlyDeserializer(new SimpleStringSchema());
+        if (!saslProperties.isEmpty()) {
+            sourceBuilder.setProperties(saslProperties);
+        }
+        KafkaSource<String> kafkaSource = sourceBuilder.build();
 
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -75,13 +96,16 @@ public class AdClickStreamJob {
         });
 
         // Kafka sink for aggregation results
-        KafkaSink<String> kafkaSink = KafkaSink.<String>builder()
-                .setBootstrapServers(flinkProperties.getKafka().getBootstrapServers())
+        var sinkBuilder = KafkaSink.<String>builder()
+                .setBootstrapServers(kafkaProps.getBootstrapServers())
                 .setRecordSerializer(KafkaRecordSerializationSchema.builder()
-                        .setTopic(flinkProperties.getKafka().getSinkTopic())
+                        .setTopic(kafkaProps.getSinkTopic())
                         .setValueSerializationSchema(new SimpleStringSchema())
-                        .build())
-                .build();
+                        .build());
+        if (!saslProperties.isEmpty()) {
+            sinkBuilder.setKafkaProducerConfig(saslProperties);
+        }
+        KafkaSink<String> kafkaSink = sinkBuilder.build();
 
         aggregations
                 .map((MapFunction<ClickAggregation, String>) agg -> objectMapper.writeValueAsString(agg))

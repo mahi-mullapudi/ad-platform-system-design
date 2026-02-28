@@ -4,9 +4,9 @@ spring:
 
   # R2DBC Configuration for reactive access
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/ads_platform
-    username: ads_user
-    password: ads_password
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/ads_platform}
+    username: ${SPRING_R2DBC_USERNAME:ads_user}
+    password: ${SPRING_R2DBC_PASSWORD:ads_password}
     pool:
       initial-size: 10
       max-size: 50
@@ -17,18 +17,23 @@ spring:
   # Flyway Configuration for schema migrations (uses JDBC)
   flyway:
     enabled: true
-    url: jdbc:postgresql://localhost:5432/ads_platform
-    user: ads_user
-    password: ads_password
+    url: ${SPRING_FLYWAY_URL:jdbc:postgresql://localhost:5432/ads_platform}
+    user: ${SPRING_FLYWAY_USER:ads_user}
+    password: ${SPRING_FLYWAY_PASSWORD:ads_password}
     baseline-on-migrate: true
+    clean-on-validation-error: false
     locations: classpath:db/migration
 
   # Kafka Configuration
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    properties:
+      security.protocol: ${SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${SPRING_KAFKA_PROPERTIES_SASL_MECHANISM:}
+      sasl.jaas.config: ${SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG:}
 
 # Actuator endpoints
 management:
@@ -38,18 +43,20 @@ management:
         include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
+      probes:
+        enabled: true
   metrics:
     export:
       prometheus:
         enabled: true
 
-# Logging
+# Logging — override per-environment via env vars
 logging:
   level:
-    com.tutorialq.systemdesign.adclick: DEBUG
-    org.springframework.data.r2dbc: DEBUG
-    io.r2dbc.postgresql: DEBUG
+    com.tutorialq.systemdesign.adclick: INFO
+    org.springframework.data.r2dbc: WARN
+    io.r2dbc.postgresql: WARN
 
 server:
   port: 8081

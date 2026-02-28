@@ -35,8 +35,8 @@ metadata:
   namespace: ads-platform
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
     # Uncomment for TLS:
     # cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
