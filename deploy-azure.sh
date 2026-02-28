@@ -46,7 +46,7 @@ az postgres flexible-server create \
   --name $POSTGRES_SERVER \
   --location $LOCATION \
   --admin-user ads_admin \
-  --admin-password "P@ssw0rd123!"  # Change this!
+  --admin-password "${POSTGRES_ADMIN_PASSWORD:?Error: Set POSTGRES_ADMIN_PASSWORD env var}" \
   --sku-name Standard_B2s \
   --tier Burstable \
   --storage-size 32
@@ -109,7 +109,7 @@ kubectl create secret generic database-secret \
   --namespace ads-platform \
   --from-literal=host=$POSTGRES_HOST \
   --from-literal=username=ads_admin \
-  --from-literal=password='P@ssw0rd123!' \
+  --from-literal=password="${POSTGRES_ADMIN_PASSWORD}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret generic eventhub-secret \
