@@ -18,9 +18,16 @@ spec:
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: ads-platform-sa
+      automountServiceAccountToken: true
       containers:
         - name: ad-click-processor
           image: adsplatformdevacr.azurecr.io/ad-click-processor:v2
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 8083
           env:

@@ -17,7 +17,6 @@
 
     <modules>
         <module>ads-domain</module>
-        <module>ad-service</module>
         <module>ad-click-service</module>
         <module>ad-click-processor</module>
         <module>analytics-gateway</module>
@@ -30,7 +29,7 @@
         <avro.version>1.11.4</avro.version>
         <pinot.version>1.0.0</pinot.version>
         <flink.version>1.18.0</flink.version>
-        <r2dbc-postgresql.version>1.0.3.RELEASE</r2dbc-postgresql.version>
+        <r2dbc-postgresql.version>1.0.4.RELEASE</r2dbc-postgresql.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
     </properties>
 
@@ -47,7 +46,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>r2dbc-postgresql</artifactId>
-                <version>1.0.4.RELEASE</version>
+                <version>${r2dbc-postgresql.version}</version>
             </dependency>
             <!-- Avro -->
             <dependency>
@@ -66,21 +65,8 @@
                 <artifactId>flink-connector-kafka</artifactId>
                 <version>3.0.1-1.18</version>
             </dependency>
-            <!-- Confluent Kafka Avro Serializer -->
-            <dependency>
-                <groupId>io.confluent</groupId>
-                <artifactId>kafka-avro-serializer</artifactId>
-                <version>${confluent.version}</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
-
-    <repositories>
-        <repository>
-            <id>confluent</id>
-            <url>https://packages.confluent.io/maven/</url>
-        </repository>
-    </repositories>
 
     <build>
         <pluginManagement>

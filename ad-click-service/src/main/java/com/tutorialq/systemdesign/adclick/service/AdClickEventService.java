@@ -1,6 +1,7 @@
 package com.tutorialq.systemdesign.adclick.service;
 
 import com.tutorialq.systemdesign.adclick.domain.AdClickEvent;
+import com.tutorialq.systemdesign.adclick.domain.CampaignSummary;
 import com.tutorialq.systemdesign.adclick.repository.AdClickEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,14 @@ public class AdClickEventService {
 
     public Mono<Long> countEventsByCampaignAndType(String campaignId, String eventType, Instant startTime) {
         return repository.countByCampaignIdAndEventType(campaignId, eventType, startTime);
+    }
+
+    public Mono<Long> countEventsByCampaignTypeAndTimeRange(String campaignId, String eventType, Instant start, Instant end) {
+        return repository.countByCampaignIdAndEventTypeInTimeRange(campaignId, eventType, start, end);
+    }
+
+    public Flux<CampaignSummary> getTopCampaigns(Instant start, int limit) {
+        return repository.findTopCampaignsByEventCount(start, limit);
     }
 
     private void publishToKafka(AdClickEvent event) {

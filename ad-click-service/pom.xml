@@ -49,12 +49,6 @@
             <artifactId>spring-kafka</artifactId>
         </dependency>
 
-        <!-- Confluent Kafka Avro Serializer -->
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-avro-serializer</artifactId>
-        </dependency>
-
         <!-- Domain module -->
         <dependency>
             <groupId>com.tutorialq</groupId>

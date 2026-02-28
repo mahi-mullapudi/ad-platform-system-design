@@ -1,0 +1,142 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ads-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+# Allow ingress controller → analytics-gateway only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-gateway
+  namespace: ads-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: analytics-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Gateway → ad-click-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-to-click-service
+  namespace: ads-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: ad-click-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: analytics-gateway
+      ports:
+        - protocol: TCP
+          port: 8081
+
+---
+# Allow all pods DNS resolution (required for service discovery)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: ads-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ad-click-service → PostgreSQL + Kafka + Event Hubs (egress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-click-service-egress
+  namespace: ads-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: ad-click-service
+  policyTypes:
+    - Egress
+  egress:
+    # PostgreSQL
+    - ports:
+        - protocol: TCP
+          port: 5432
+    # Kafka / Event Hubs
+    - ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+
+---
+# ad-click-processor → Kafka + Event Hubs (egress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-click-processor-egress
+  namespace: ads-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: ad-click-processor
+  policyTypes:
+    - Egress
+  egress:
+    # Kafka / Event Hubs
+    - ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+
+---
+# analytics-gateway → ad-click-service (egress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-egress
+  namespace: ads-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: analytics-gateway
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: ad-click-service
+      ports:
+        - protocol: TCP
+          port: 8081

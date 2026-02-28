@@ -5,7 +5,6 @@ WORKDIR /workspace
 # Copy parent POM and ALL module POMs (Maven reactor needs them all)
 COPY pom.xml ./pom.xml
 COPY ads-domain/pom.xml ./ads-domain/pom.xml
-COPY ad-service/pom.xml ./ad-service/pom.xml
 COPY ad-click-service/pom.xml ./ad-click-service/pom.xml
 COPY ad-click-processor/pom.xml ./ad-click-processor/pom.xml
 COPY analytics-gateway/pom.xml ./analytics-gateway/pom.xml

@@ -24,19 +24,11 @@ spring:
           filters:
             - StripPrefix=0
 
-        # Route to Pinot broker for analytics queries
-        - id: pinot-broker
-          uri: http://localhost:8000
-          predicates:
-            - Path=/pinot/**
-          filters:
-            - StripPrefix=1
-
-      # Enable CORS
+      # CORS — restrict to known origins in production via ALLOWED_ORIGINS env var
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: "*"
+            allowedOrigins: ${ALLOWED_ORIGINS:http://localhost:3000}
             allowedMethods:
               - GET
               - POST
@@ -44,22 +36,25 @@ spring:
               - DELETE
               - OPTIONS
             allowedHeaders: "*"
+            maxAge: 3600
 
 # Actuator
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,gateway
+        include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
+      probes:
+        enabled: true
 
 # Logging
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    com.tutorialq.systemdesign.analytics: DEBUG
+    org.springframework.cloud.gateway: INFO
+    com.tutorialq.systemdesign.analytics: INFO
 
 server:
   port: 8080
